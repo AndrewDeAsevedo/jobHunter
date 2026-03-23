@@ -2,6 +2,7 @@ import fetch from "node-fetch";
 import fs from "fs";
 import * as cheerio from "cheerio";
 import { WORKDAY_COMPANIES, ASHBY_COMPANIES } from "./companies.js";
+import "dotenv/config";
 
 const FETCH_TIMEOUT_MS = 10_000;
 
@@ -45,7 +46,7 @@ const EXCLUDE = [
   "masters"
 ];
 
-const DISCORD_WEBHOOK = "";
+const DISCORD_WEBHOOK = process.env.DISCORD_WEBHOOK;
 const SEEN_FILE = "seen.json";
 const DISCOVERED_FILE = "discovered.json";
 
