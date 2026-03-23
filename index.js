@@ -18,7 +18,8 @@ const KEYWORDS = [
   "software engineer i",
   "new grad",
   "associate",
-  "entry level"
+  "entry level",
+  "junior"
 ];
 
 const LOCATIONS = [
@@ -43,7 +44,9 @@ const EXCLUDE = [
   "intern",
   "contract",
   "PhD",
-  "masters"
+  "masters",
+  "manager",
+  "Sr"
 ];
 
 const DISCORD_WEBHOOK = process.env.DISCORD_WEBHOOK;
