@@ -46,7 +46,9 @@ const EXCLUDE = [
   "phd",
   "masters",
   "manager",
-  "sr"
+  "sr",
+  "director",
+  "president"
 ];
 
 const DISCORD_WEBHOOK = process.env.DISCORD_WEBHOOK;
@@ -258,7 +260,7 @@ async function checkAshby() {
 
         const title = job.title;
         const location = job.location || "";
-        const jobUrl = `https://jobs.ashbyhq.com/${company}/${job.id}`;
+        const jobUrl = job.jobUrl || `https://jobs.ashbyhq.com/${company}/${job.id}`;
 
         if (matches(title, location)) {
           seen.add(id);
