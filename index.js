@@ -43,10 +43,10 @@ const EXCLUDE = [
   "lead",
   "intern",
   "contract",
-  "PhD",
+  "phd",
   "masters",
   "manager",
-  "Sr"
+  "sr"
 ];
 
 const DISCORD_WEBHOOK = process.env.DISCORD_WEBHOOK;
