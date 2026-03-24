@@ -284,9 +284,22 @@ function saveSeen() {
 // ---------------- GREENHOUSE ----------------
 
 const GREENHOUSE_BOARDS = [
+  // --- SF / Bay Area ---
   "airbnb", "stripe", "figma", "discord", "instacart",
   "lyft", "pinterest", "reddit", "squarespace", "twitch",
-  "databricks", "anthropic"
+  "databricks", "anthropic", "cockroachlabs", "gusto",
+  "flexport", "benchling", "airtable", "webflow",
+  "samsara", "faire", "chime", "marqeta", "affirm",
+  "nerdwallet", "ziprecruiter", "yelp", "asana",
+  "cloudera", "hashicorp", "pagerduty", "fastly",
+  "docusign", "okta", "unity3d", "cruise",
+
+  // --- Boston / Cambridge ---
+  "hubspot", "toast", "rapid7", "formlabs",
+  "draftkings", "klaviyo", "smartbear", "veeva",
+  "thoughtspot", "mimecast", "pegasystems",
+  "recorded-future", "jellyfish", "tulip",
+  "snyk", "akaaborea",
 ];
 
 async function checkGreenhouse() {
@@ -325,7 +338,16 @@ async function checkGreenhouse() {
 // ---------------- LEVER ----------------
 
 const LEVER_COMPANIES = [
-  "plaid",
+  // --- SF / Bay Area ---
+  "plaid", "Netflix", "coinbase", "notion",
+  "cloudflare", "brex", "newrelic", "verkada",
+  "nianticlabs", "relativityspace", "rippling",
+  "ironclad", "lacework", "grammarly", "andurilindustries",
+  "dbt-labs", "materialize",
+
+  // --- Boston / Cambridge ---
+  "motioncorporation", "locus-robotics", "whoop", "appcues",
+  "transmitsecurity",
 ];
 
 async function checkLever() {
