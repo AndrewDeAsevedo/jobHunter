@@ -14,15 +14,86 @@ function fetchWithTimeout(url, opts = {}) {
 // ---------------- CONFIG ----------------
 
 const KEYWORDS = [
+  // Core SWE titles
   "software engineer",
-  "software engineer i",
-  "new grad",
-  "associate",
-  "entry level",
-  "junior"
+  "software developer",
+  "swe ",
+  "sde ",
+
+  // Stack-specific
+  "frontend engineer",
+  "front end engineer",
+  "front-end engineer",
+  "frontend developer",
+  "backend engineer",
+  "back end engineer",
+  "back-end engineer",
+  "backend developer",
+  "fullstack engineer",
+  "full stack engineer",
+  "full-stack engineer",
+  "fullstack developer",
+  "full stack developer",
+  "full-stack developer",
+
+  // Web / Mobile
+  "web developer",
+  "web engineer",
+  "ios engineer",
+  "ios developer",
+  "android engineer",
+  "android developer",
+  "mobile engineer",
+  "mobile developer",
+
+  // Infra / Platform / Cloud
+  "platform engineer",
+  "infrastructure engineer",
+  "cloud engineer",
+  "systems engineer",
+  "site reliability engineer",
+  "sre ",
+  "devops engineer",
+  "production engineer",
+  "build engineer",
+  "release engineer",
+  "tooling engineer",
+
+  // Data / ML / AI
+  "data engineer",
+  "ml engineer",
+  "machine learning engineer",
+  "ai engineer",
+  "applied scientist",
+
+  // Security
+  "security engineer",
+  "application security engineer",
+  "appsec engineer",
+
+  // QA / Test
+  "qa engineer",
+  "quality engineer",
+  "test engineer",
+  "sdet",
+  "automation engineer",
+
+  // Specialties
+  "application engineer",
+  "integration engineer",
+  "api engineer",
+  "embedded engineer",
+  "embedded software",
+  "firmware engineer",
+  "network engineer",
+  "database engineer",
+  "solutions engineer",
+  "support engineer",
+  "implementation engineer",
 ];
 
 const LOCATIONS = [
+  // --- San Francisco / Bay Area ---
   "san francisco",
   "sf",
   "bay area",
@@ -30,31 +101,130 @@ const LOCATIONS = [
   "palo alto",
   "mountain view",
   "sunnyvale",
+  "santa clara",
+  "cupertino",
   "redwood city",
   "menlo park",
   "oakland",
+  "berkeley",
+  "fremont",
+  "hayward",
+  "san mateo",
+  "foster city",
+  "burlingame",
+  "south san francisco",
+  "daly city",
+  "san bruno",
+  "milpitas",
+  "campbell",
+  "los gatos",
+  "saratoga",
+  "pleasanton",
+  "livermore",
+  "walnut creek",
+  "concord",
+  "san ramon",
+  "dublin, ca",
+  "alameda",
+  "emeryville",
+  "richmond, ca",
+  "novato",
+  "san rafael",
+  "half moon bay",
+
+  // --- Boston / Greater Boston ---
   "boston",
-  "cambridge, ma",
-  "somerville, ma",
+  "cambridge",
+  "somerville",
+  "brookline",
   "waltham",
   "burlington, ma",
+  "lexington, ma",
+  "newton",
+  "needham",
+  "wellesley",
+  "woburn",
+  "bedford, ma",
+  "billerica",
+  "lowell",
+  "marlborough",
+  "framingham",
+  "natick",
+  "quincy",
+  "braintree",
+  "weymouth",
+  "norwood",
+  "dedham",
+  "watertown",
+  "medford",
+  "malden",
+  "revere",
+  "chelsea, ma",
+  "lynn",
+  "salem, ma",
+  "beverly",
+  "peabody",
+  "andover",
+  "worcester",
   "massachusetts",
-  "remote"
+
+  // --- Remote / Flexible ---
+  "remote",
 ];
 
 const EXCLUDE = [
+  // --- Seniority (too experienced) ---
   "senior",
+  "sr.",
+  "sr ",
   "staff",
   "principal",
+  "distinguished",
+  "fellow",
+
+  // --- Leadership ---
   "lead",
-  "intern",
-  "contract",
-  "phd",
-  "masters",
   "manager",
-  "sr",
   "director",
-  "president"
+  "head of",
+  "vp ",
+  "vice president",
+  "president",
+  "chief",
+  "cto",
+  "cio",
+  "architect",
+
+  // --- Not full-time / not permanent ---
+  "intern",
+  "internship",
+  "co-op",
+  "coop",
+  "contract",
+  "contractor",
+  "freelance",
+  "temporary",
+  "temp ",
+  "part time",
+  "part-time",
+
+  // --- Overqualified requirements ---
+  "phd",
+  "ph.d",
+  "masters",
+  "master's",
+  "10+ years",
+  "8+ years",
+  "7+ years",
+  "6+ years",
+  "5+ years",
+
+  // --- Non-IC roles that sneak through ---
+  "consultant",
+  "advisory",
+  "evangelist",
+  "strategist",
+  "analyst",
 ];
 
 const DISCORD_WEBHOOK = process.env.DISCORD_WEBHOOK;
