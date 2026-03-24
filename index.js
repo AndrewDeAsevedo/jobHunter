@@ -33,6 +33,12 @@ const LOCATIONS = [
   "redwood city",
   "menlo park",
   "oakland",
+  "boston",
+  "cambridge, ma",
+  "somerville, ma",
+  "waltham",
+  "burlington, ma",
+  "massachusetts",
   "remote"
 ];
 
