@@ -99,3 +99,15 @@ pm2 save
 ```bash
 echo "[]" > seen.json && pm2 restart jobhunter
 ```
+
+## Use of AI
+
+This project was built with the assistance of AI (Claude via Cursor). AI was used for:
+
+- **Architecture & design** — planning the multi-API scraping approach and scheduling strategy
+- **Debugging** — diagnosing API-specific issues (Workday 422s, Ashby URL construction, Google rate-limiting)
+- **Code generation** — writing the initial scraper logic, and filtering system
+- **Company research** — identifying which companies use which job board platforms and their correct API configurations
+- **Iterative refinement** — expanding keyword/location/exclusion filters based on real output analysis
+
+All code was reviewed, tested, and deployed by me. The architecture decisions — what to build, which platforms to target, how to filter, and where to deploy — were mine.
