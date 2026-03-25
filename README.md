@@ -1,4 +1,4 @@
-# JobHunter
+# jobHunter
 
 Automated job scraper that monitors 170+ company career pages across four major job board platforms. Filters for entry-level software engineering roles in the SF Bay Area and Greater Boston, then sends real-time Discord notifications within minutes of a posting going live.
 

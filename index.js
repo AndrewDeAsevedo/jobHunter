@@ -416,7 +416,7 @@ async function checkWorkday() {
 
         const title = job.title;
         const location = job.locationsText || "";
-        const jobUrl = `https://${company.tenant}.wd${wdNum}.myworkdayjobs.com/${company.site}/job/${job.externalPath}`;
+        const jobUrl = `https://${company.tenant}.wd${wdNum}.myworkdayjobs.com/en-US/${company.site}/details/${job.externalPath}`;
 
         if (matches(title, location)) {
           seen.add(id);
