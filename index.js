@@ -233,9 +233,14 @@ const DISCOVERED_FILE = "discovered.json";
 
 // ---------------- STATE ----------------
 
-let seen = new Set();
+let seen = new Map();
 if (fs.existsSync(SEEN_FILE)) {
-  seen = new Set(JSON.parse(fs.readFileSync(SEEN_FILE)));
+  const raw = JSON.parse(fs.readFileSync(SEEN_FILE));
+  if (Array.isArray(raw)) {
+    for (const id of raw) seen.set(id, Date.now());
+  } else {
+    for (const [id, ts] of Object.entries(raw)) seen.set(id, ts);
+  }
 }
 
 /** Persistent store for Google-discovered companies, keyed by platform. */
@@ -248,6 +253,8 @@ if (fs.existsSync(DISCOVERED_FILE)) {
 function saveDiscovered() {
   fs.writeFileSync(DISCOVERED_FILE, JSON.stringify(discovered, null, 2));
 }
+
+let dailyStats = { jobs: 0, greenhouse: 0, lever: 0, workday: 0, ashby: 0, discovered: 0, errors: 0 };
 
 // ---------------- HELPERS ----------------
 
@@ -279,7 +286,23 @@ async function notify(title, location, url) {
 }
 
 function saveSeen() {
-  fs.writeFileSync(SEEN_FILE, JSON.stringify([...seen], null, 2));
+  fs.writeFileSync(SEEN_FILE, JSON.stringify(Object.fromEntries(seen), null, 2));
+}
+
+const SEEN_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+
+/** Removes seen entries older than 30 days. Returns count of pruned entries. */
+function pruneSeen() {
+  const cutoff = Date.now() - SEEN_MAX_AGE_MS;
+  let pruned = 0;
+  for (const [id, ts] of seen) {
+    if (ts < cutoff) {
+      seen.delete(id);
+      pruned++;
+    }
+  }
+  if (pruned) saveSeen();
+  return pruned;
 }
 
 // ---------------- GREENHOUSE ----------------
@@ -332,11 +355,14 @@ async function checkGreenhouse() {
         const location = job.location?.name || "";
 
         if (matches(title, location)) {
-          seen.add(id);
+          seen.set(id, Date.now());
+          dailyStats.greenhouse++;
+          dailyStats.jobs++;
           await notify(title, location, job.absolute_url);
         }
       }
     } catch (err) {
+      dailyStats.errors++;
       console.error(`[Greenhouse] ${board}: ${err.message}`);
     }
   }
@@ -385,11 +411,14 @@ async function checkLever() {
         const location = job.categories?.location || "";
 
         if (matches(title, location)) {
-          seen.add(id);
+          seen.set(id, Date.now());
+          dailyStats.lever++;
+          dailyStats.jobs++;
           await notify(title, location, job.hostedUrl);
         }
       }
     } catch (err) {
+      dailyStats.errors++;
       console.error(`[Lever] ${company}: ${err.message}`);
     }
   }
@@ -433,11 +462,14 @@ async function checkWorkday() {
         const jobUrl = `https://${company.tenant}.wd${wdNum}.myworkdayjobs.com/en-US/${company.site}/details/${jobId}`;
 
         if (matches(title, location)) {
-          seen.add(id);
+          seen.set(id, Date.now());
+          dailyStats.workday++;
+          dailyStats.jobs++;
           await notify(title, location, jobUrl);
         }
       }
     } catch (err) {
+      dailyStats.errors++;
       console.error(`[Workday] ${company.name}: ${err.message}`);
     }
   }
@@ -475,11 +507,14 @@ async function checkAshby() {
         const jobUrl = job.jobUrl || `https://jobs.ashbyhq.com/${company}/${job.id}`;
 
         if (matches(title, location)) {
-          seen.add(id);
+          seen.set(id, Date.now());
+          dailyStats.ashby++;
+          dailyStats.jobs++;
           await notify(title, location, jobUrl);
         }
       }
     } catch (err) {
+      dailyStats.errors++;
       console.error(`[Ashby] ${company}: ${err.message}`);
     }
   }
@@ -676,11 +711,13 @@ async function discoverCompanies() {
 
       if (i < DISCOVERY_QUERIES.length - 1) await randomDelay(8000, 15000);
     } catch (err) {
+      dailyStats.errors++;
       console.error(`[Discovery] ${err.message}`);
     }
   }
 
   const total = counts.workday + counts.ashby + counts.greenhouse + counts.lever;
+  dailyStats.discovered += total;
   if (total) {
     saveDiscovered();
     console.log(`[Discovery] Added ${counts.greenhouse} Greenhouse + ${counts.lever} Lever + ${counts.workday} Workday + ${counts.ashby} Ashby companies\n`);
@@ -709,18 +746,76 @@ async function runDiscovery() {
   console.log(`[${new Date().toLocaleTimeString()}] ✅ Discovery done\n`);
 }
 
+/** Posts a daily summary to Discord, prunes stale seen entries, and resets counters. */
+async function sendDailyDigest() {
+  const pruned = pruneSeen();
+  const date = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" });
+
+  const ghTotal = getAllGreenhouseBoards().length;
+  const levTotal = getAllLeverCompanies().length;
+  const wdTotal = getAllWorkdayCompanies().length;
+  const ashTotal = getAllAshbyCompanies().length;
+  const companyTotal = ghTotal + levTotal + wdTotal + ashTotal;
+
+  const lines = [
+    `📊 **Daily Digest (${date})**`,
+    `${dailyStats.jobs} new jobs found: ${dailyStats.greenhouse} Greenhouse, ${dailyStats.lever} Lever, ${dailyStats.workday} Workday, ${dailyStats.ashby} Ashby`,
+    `${companyTotal} companies tracked (${ghTotal} GH + ${levTotal} Lev + ${wdTotal} WD + ${ashTotal} Ash)`,
+    `${dailyStats.discovered} new companies discovered`,
+    `${dailyStats.errors} API errors`,
+    `seen.json: ${seen.size.toLocaleString()} entries${pruned ? ` (pruned ${pruned} stale)` : ""}`,
+  ];
+
+  const msg = lines.join("\n");
+  console.log(`\n${msg}\n`);
+
+  if (DISCORD_WEBHOOK) {
+    try {
+      await fetchWithTimeout(DISCORD_WEBHOOK, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: msg })
+      });
+    } catch (err) {
+      console.error(`[Digest] Failed to send: ${err.message}`);
+    }
+  }
+
+  dailyStats = { jobs: 0, greenhouse: 0, lever: 0, workday: 0, ashby: 0, discovered: 0, errors: 0 };
+}
+
+/** Returns ms until the next occurrence of the given hour (0-23) in local time. */
+function msUntilHour(hour) {
+  const now = new Date();
+  const target = new Date(now);
+  target.setHours(hour, 0, 0, 0);
+  if (target <= now) target.setDate(target.getDate() + 1);
+  return target - now;
+}
+
+const DIGEST_HOUR = 20; // 8 PM local time
+const DIGEST_INTERVAL_MS = 24 * 60 * 60 * 1000;
+
 async function start() {
   await runAPIs();
 
   setInterval(runAPIs, API_INTERVAL_MS);
   setInterval(runDiscovery, GOOGLE_INTERVAL_MS);
 
+  // Schedule daily digest at DIGEST_HOUR, then every 24h after
+  const msToDigest = msUntilHour(DIGEST_HOUR);
+  const digestHoursAway = (msToDigest / 3600000).toFixed(1);
+  setTimeout(() => {
+    sendDailyDigest();
+    setInterval(sendDailyDigest, DIGEST_INTERVAL_MS);
+  }, msToDigest);
+
   const ghTotal = getAllGreenhouseBoards().length;
   const levTotal = getAllLeverCompanies().length;
   const wdTotal = getAllWorkdayCompanies().length;
   const ashTotal = getAllAshbyCompanies().length;
   console.log(`⏰ Tracking ${ghTotal} Greenhouse + ${levTotal} Lever + ${wdTotal} Workday + ${ashTotal} Ashby companies`);
-  console.log(`⏰ APIs every 15m, Discovery in ${GOOGLE_INTERVAL_MS / 3600000}h. Ctrl+C to stop.\n`);
+  console.log(`⏰ APIs every 15m, Discovery every ${GOOGLE_INTERVAL_MS / 3600000}h, Digest at ${DIGEST_HOUR}:00 (in ${digestHoursAway}h). Ctrl+C to stop.\n`);
 }
 
 start();
