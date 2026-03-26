@@ -239,9 +239,10 @@ if (fs.existsSync(SEEN_FILE)) {
 }
 
 /** Persistent store for Google-discovered companies, keyed by platform. */
-let discovered = { workday: [], ashby: [] };
+let discovered = { workday: [], ashby: [], greenhouse: [], lever: [] };
 if (fs.existsSync(DISCOVERED_FILE)) {
-  discovered = JSON.parse(fs.readFileSync(DISCOVERED_FILE));
+  const loaded = JSON.parse(fs.readFileSync(DISCOVERED_FILE));
+  discovered = { ...discovered, ...loaded };
 }
 
 function saveDiscovered() {
@@ -302,8 +303,14 @@ const GREENHOUSE_BOARDS = [
   "snyk", "akaaborea",
 ];
 
+function getAllGreenhouseBoards() {
+  const known = new Set(GREENHOUSE_BOARDS);
+  const extra = discovered.greenhouse.filter(b => !known.has(b));
+  return [...GREENHOUSE_BOARDS, ...extra];
+}
+
 async function checkGreenhouse() {
-  for (const board of GREENHOUSE_BOARDS) {
+  for (const board of getAllGreenhouseBoards()) {
     try {
       const res = await fetchWithTimeout(
         `https://boards-api.greenhouse.io/v1/boards/${board}/jobs`
@@ -350,8 +357,14 @@ const LEVER_COMPANIES = [
   "transmitsecurity",
 ];
 
+function getAllLeverCompanies() {
+  const known = new Set(LEVER_COMPANIES.map(c => c.toLowerCase()));
+  const extra = discovered.lever.filter(c => !known.has(c.toLowerCase()));
+  return [...LEVER_COMPANIES, ...extra];
+}
+
 async function checkLever() {
-  for (const company of LEVER_COMPANIES) {
+  for (const company of getAllLeverCompanies()) {
     try {
       const res = await fetchWithTimeout(
         `https://api.lever.co/v0/postings/${company}?mode=json`
@@ -475,14 +488,26 @@ async function checkAshby() {
 // ---------------- GOOGLE DISCOVERY ----------------
 
 const DISCOVERY_QUERIES = [
+  // Workday
   `site:myworkdayjobs.com "software engineer" "san francisco"`,
-  `site:myworkdayjobs.com "software engineer" "bay area"`,
+  `site:myworkdayjobs.com "software engineer" "boston"`,
   `site:myworkdayjobs.com "new grad" software engineer`,
   `site:myworkdayjobs.com "entry level" software engineer`,
+  // Ashby
   `site:jobs.ashbyhq.com "software engineer" "san francisco"`,
-  `site:jobs.ashbyhq.com "software engineer" "bay area"`,
+  `site:jobs.ashbyhq.com "software engineer" "boston"`,
   `site:jobs.ashbyhq.com "new grad" software engineer`,
-  `site:jobs.ashbyhq.com "entry level" software engineer`
+  `site:jobs.ashbyhq.com "entry level" software engineer`,
+  // Greenhouse
+  `site:boards.greenhouse.io "software engineer" "san francisco"`,
+  `site:boards.greenhouse.io "software engineer" "boston"`,
+  `site:boards.greenhouse.io "new grad" software engineer`,
+  `site:boards.greenhouse.io "entry level" software engineer`,
+  // Lever
+  `site:jobs.lever.co "software engineer" "san francisco"`,
+  `site:jobs.lever.co "software engineer" "boston"`,
+  `site:jobs.lever.co "new grad" software engineer`,
+  `site:jobs.lever.co "entry level" software engineer`,
 ];
 
 const GOOGLE_UA =
@@ -528,6 +553,28 @@ function parseAshbyUrl(url) {
   return match[1].toLowerCase();
 }
 
+/**
+ * Extract Greenhouse board token from a URL like:
+ * https://boards.greenhouse.io/{token}/jobs/...
+ */
+function parseGreenhouseUrl(url) {
+  const match = url.match(/https?:\/\/boards\.greenhouse\.io\/([^/?#]+)/);
+  if (!match) return null;
+  const token = match[1].toLowerCase();
+  if (token === "embed" || token === "include") return null;
+  return token;
+}
+
+/**
+ * Extract Lever company slug from a URL like:
+ * https://jobs.lever.co/{slug}/...
+ */
+function parseLeverUrl(url) {
+  const match = url.match(/https?:\/\/jobs\.lever\.co\/([^/?#]+)/);
+  if (!match) return null;
+  return match[1].toLowerCase();
+}
+
 async function scrapeGoogleLinks(query) {
   const url = `https://www.google.com/search?q=${encodeURIComponent(query)}&num=30`;
 
@@ -555,7 +602,12 @@ async function scrapeGoogleLinks(query) {
     const match = href.match(/\/url\?q=(https:\/\/[^&]+)/);
     if (match) {
       const link = decodeURIComponent(match[1]);
-      if (link.includes("myworkdayjobs.com") || link.includes("ashbyhq.com")) {
+      if (
+        link.includes("myworkdayjobs.com") ||
+        link.includes("ashbyhq.com") ||
+        link.includes("boards.greenhouse.io") ||
+        link.includes("jobs.lever.co")
+      ) {
         links.push(link);
       }
     }
@@ -573,9 +625,16 @@ async function discoverCompanies() {
     ...ASHBY_COMPANIES,
     ...discovered.ashby
   ]);
+  const knownGhBoards = new Set([
+    ...GREENHOUSE_BOARDS,
+    ...discovered.greenhouse
+  ]);
+  const knownLeverSlugs = new Set([
+    ...LEVER_COMPANIES.map(c => c.toLowerCase()),
+    ...discovered.lever.map(c => c.toLowerCase())
+  ]);
 
-  let newWorkday = 0;
-  let newAshby = 0;
+  let counts = { workday: 0, ashby: 0, greenhouse: 0, lever: 0 };
 
   for (let i = 0; i < DISCOVERY_QUERIES.length; i++) {
     try {
@@ -586,7 +645,7 @@ async function discoverCompanies() {
         if (wdCompany && !knownWdTenants.has(wdCompany.tenant)) {
           knownWdTenants.add(wdCompany.tenant);
           discovered.workday.push(wdCompany);
-          newWorkday++;
+          counts.workday++;
           console.log(`[Discovery] 🆕 Workday: ${wdCompany.name} (${wdCompany.tenant}/${wdCompany.site})`);
         }
 
@@ -594,8 +653,24 @@ async function discoverCompanies() {
         if (ashbySlug && !knownAshbySlugs.has(ashbySlug)) {
           knownAshbySlugs.add(ashbySlug);
           discovered.ashby.push(ashbySlug);
-          newAshby++;
+          counts.ashby++;
           console.log(`[Discovery] 🆕 Ashby: ${ashbySlug}`);
+        }
+
+        const ghBoard = parseGreenhouseUrl(link);
+        if (ghBoard && !knownGhBoards.has(ghBoard)) {
+          knownGhBoards.add(ghBoard);
+          discovered.greenhouse.push(ghBoard);
+          counts.greenhouse++;
+          console.log(`[Discovery] 🆕 Greenhouse: ${ghBoard}`);
+        }
+
+        const leverSlug = parseLeverUrl(link);
+        if (leverSlug && !knownLeverSlugs.has(leverSlug)) {
+          knownLeverSlugs.add(leverSlug);
+          discovered.lever.push(leverSlug);
+          counts.lever++;
+          console.log(`[Discovery] 🆕 Lever: ${leverSlug}`);
         }
       }
 
@@ -605,9 +680,10 @@ async function discoverCompanies() {
     }
   }
 
-  if (newWorkday || newAshby) {
+  const total = counts.workday + counts.ashby + counts.greenhouse + counts.lever;
+  if (total) {
     saveDiscovered();
-    console.log(`[Discovery] Added ${newWorkday} Workday + ${newAshby} Ashby companies\n`);
+    console.log(`[Discovery] Added ${counts.greenhouse} Greenhouse + ${counts.lever} Lever + ${counts.workday} Workday + ${counts.ashby} Ashby companies\n`);
   } else {
     console.log("[Discovery] No new companies found\n");
   }
@@ -639,9 +715,11 @@ async function start() {
   setInterval(runAPIs, API_INTERVAL_MS);
   setInterval(runDiscovery, GOOGLE_INTERVAL_MS);
 
+  const ghTotal = getAllGreenhouseBoards().length;
+  const levTotal = getAllLeverCompanies().length;
   const wdTotal = getAllWorkdayCompanies().length;
   const ashTotal = getAllAshbyCompanies().length;
-  console.log(`⏰ Tracking ${wdTotal} Workday + ${ashTotal} Ashby + ${GREENHOUSE_BOARDS.length} Greenhouse + ${LEVER_COMPANIES.length} Lever companies`);
+  console.log(`⏰ Tracking ${ghTotal} Greenhouse + ${levTotal} Lever + ${wdTotal} Workday + ${ashTotal} Ashby companies`);
   console.log(`⏰ APIs every 15m, Discovery in ${GOOGLE_INTERVAL_MS / 3600000}h. Ctrl+C to stop.\n`);
 }
 
