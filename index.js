@@ -254,7 +254,7 @@ function saveDiscovered() {
   fs.writeFileSync(DISCOVERED_FILE, JSON.stringify(discovered, null, 2));
 }
 
-let dailyStats = { jobs: 0, greenhouse: 0, lever: 0, workday: 0, ashby: 0, discovered: 0, errors: 0 };
+let dailyStats = { jobs: 0, greenhouse: 0, lever: 0, workday: 0, ashby: 0, google: 0, discovered: 0, errors: 0 };
 
 // ---------------- HELPERS ----------------
 
@@ -520,6 +520,74 @@ async function checkAshby() {
   }
 }
 
+// ---------------- GOOGLE CAREERS ----------------
+
+const GOOGLE_CAREERS_QUERIES = [
+  { q: "software engineer", location: "San Francisco" },
+  { q: "software engineer", location: "Boston" },
+];
+const GOOGLE_CAREERS_PAGES = 3;
+
+/**
+ * Parses embedded job data from Google Careers HTML.
+ * Google renders job listings into AF_initDataCallback({key:'ds:1', ...})
+ * as a JSON array — no headless browser needed.
+ */
+function parseGoogleCareersJobs(html) {
+  const match = html.match(/AF_initDataCallback\(\{key: 'ds:1', hash: '2', data:(.*), sideChannel:/);
+  if (!match) return [];
+
+  try {
+    const data = JSON.parse(match[1]);
+    return (data[0] || []).map(j => ({
+      id: j[0],
+      title: j[1],
+      company: j[7] || "Google",
+      locations: (j[9] || []).map(loc => loc[0]).join(", "),
+      url: `https://www.google.com/about/careers/applications/jobs/results/${j[0]}`,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+async function checkGoogleCareers() {
+  for (const query of GOOGLE_CAREERS_QUERIES) {
+    for (let page = 1; page <= GOOGLE_CAREERS_PAGES; page++) {
+      try {
+        const url = `https://www.google.com/about/careers/applications/jobs/results/?q=${encodeURIComponent(query.q)}&location=${encodeURIComponent(query.location)}&page=${page}`;
+
+        const res = await fetchWithTimeout(url, {
+          headers: { "User-Agent": GOOGLE_UA, "Accept-Language": "en-US,en;q=0.9" }
+        });
+
+        if (!res.ok) {
+          console.error(`[Google Careers] ${query.location} page ${page}: HTTP ${res.status}`);
+          continue;
+        }
+
+        const html = await res.text();
+        const jobs = parseGoogleCareersJobs(html);
+
+        for (const job of jobs) {
+          const id = `gc-${job.id}`;
+          if (seen.has(id)) continue;
+
+          if (matches(job.title, job.locations)) {
+            seen.set(id, Date.now());
+            dailyStats.google++;
+            dailyStats.jobs++;
+            await notify(`${job.title} (${job.company})`, job.locations, job.url);
+          }
+        }
+      } catch (err) {
+        dailyStats.errors++;
+        console.error(`[Google Careers] ${query.location} page ${page}: ${err.message}`);
+      }
+    }
+  }
+}
+
 // ---------------- GOOGLE DISCOVERY ----------------
 
 const DISCOVERY_QUERIES = [
@@ -732,9 +800,9 @@ const API_INTERVAL_MS = 15 * 60 * 1000;    // 15 minutes
 const GOOGLE_INTERVAL_MS = 6 * 60 * 60 * 1000; // 6 hours
 
 async function runAPIs() {
-  console.log(`[${new Date().toLocaleTimeString()}] 🔍 Checking Greenhouse + Lever + Workday + Ashby...\n`);
+  console.log(`[${new Date().toLocaleTimeString()}] 🔍 Checking Greenhouse + Lever + Workday + Ashby + Google Careers...\n`);
 
-  await Promise.all([checkGreenhouse(), checkLever(), checkWorkday(), checkAshby()]);
+  await Promise.all([checkGreenhouse(), checkLever(), checkWorkday(), checkAshby(), checkGoogleCareers()]);
   saveSeen();
 
   console.log(`[${new Date().toLocaleTimeString()}] ✅ API check done\n`);
@@ -759,8 +827,8 @@ async function sendDailyDigest() {
 
   const lines = [
     `📊 **Daily Digest (${date})**`,
-    `${dailyStats.jobs} new jobs found: ${dailyStats.greenhouse} Greenhouse, ${dailyStats.lever} Lever, ${dailyStats.workday} Workday, ${dailyStats.ashby} Ashby`,
-    `${companyTotal} companies tracked (${ghTotal} GH + ${levTotal} Lev + ${wdTotal} WD + ${ashTotal} Ash)`,
+    `${dailyStats.jobs} new jobs found: ${dailyStats.greenhouse} Greenhouse, ${dailyStats.lever} Lever, ${dailyStats.workday} Workday, ${dailyStats.ashby} Ashby, ${dailyStats.google} Google`,
+    `${companyTotal} companies tracked (${ghTotal} GH + ${levTotal} Lev + ${wdTotal} WD + ${ashTotal} Ash) + Google Careers`,
     `${dailyStats.discovered} new companies discovered`,
     `${dailyStats.errors} API errors`,
     `seen.json: ${seen.size.toLocaleString()} entries${pruned ? ` (pruned ${pruned} stale)` : ""}`,
@@ -781,7 +849,7 @@ async function sendDailyDigest() {
     }
   }
 
-  dailyStats = { jobs: 0, greenhouse: 0, lever: 0, workday: 0, ashby: 0, discovered: 0, errors: 0 };
+  dailyStats = { jobs: 0, greenhouse: 0, lever: 0, workday: 0, ashby: 0, google: 0, discovered: 0, errors: 0 };
 }
 
 /** Returns ms until the next occurrence of the given hour (0-23) in local time. */
@@ -814,7 +882,7 @@ async function start() {
   const levTotal = getAllLeverCompanies().length;
   const wdTotal = getAllWorkdayCompanies().length;
   const ashTotal = getAllAshbyCompanies().length;
-  console.log(`⏰ Tracking ${ghTotal} Greenhouse + ${levTotal} Lever + ${wdTotal} Workday + ${ashTotal} Ashby companies`);
+  console.log(`⏰ Tracking ${ghTotal} Greenhouse + ${levTotal} Lever + ${wdTotal} Workday + ${ashTotal} Ashby companies + Google Careers`);
   console.log(`⏰ APIs every 15m, Discovery every ${GOOGLE_INTERVAL_MS / 3600000}h, Digest at ${DIGEST_HOUR}:00 (in ${digestHoursAway}h). Ctrl+C to stop.\n`);
 }
 

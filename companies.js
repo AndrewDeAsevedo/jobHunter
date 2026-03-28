@@ -33,6 +33,7 @@ export const WORKDAY_COMPANIES = [
   { name: "EA",            tenant: "ea",            site: "EA_Careers",               wd: 5 },
   { name: "Lam Research",  tenant: "lamresearch",   site: "Careers",                  wd: 5 },
   { name: "Juniper",       tenant: "juniper",       site: "Juniper_Networks_Careers", wd: 5 },
+  { name: "Cisco",         tenant: "cisco",         site: "Cisco_Careers",            wd: 5 },
 
   // --- Boston / Cambridge ---
   { name: "Wayfair",       tenant: "wayfair",       site: "External",                wd: 1 },
@@ -48,25 +49,6 @@ export const WORKDAY_COMPANIES = [
   { name: "Akamai",        tenant: "akamai",        site: "Akamai_Careers",          wd: 1 },
   { name: "iRobot",        tenant: "irobot",        site: "iRobot_Careers",          wd: 5 },
   { name: "PTC",           tenant: "ptc",           site: "PTCCareers",              wd: 1 },
-
-  // --- National (big eng presence in SF or BOS) ---
-  { name: "Google",        tenant: "google",        site: "Google_Careers",           wd: 5 },
-  { name: "Amazon",        tenant: "amazon",        site: "AmazonCareers",           wd: 5 },
-  { name: "Apple",         tenant: "apple",         site: "Apple_Careers",            wd: 5 },
-  { name: "Microsoft",     tenant: "microsoft",     site: "Microsoft_Careers",        wd: 5 },
-  { name: "Meta",          tenant: "meta",          site: "Meta_Careers",             wd: 5 },
-  { name: "Netflix",       tenant: "netflix",       site: "Netflix_Careers",          wd: 5 },
-  { name: "Spotify",       tenant: "spotify",       site: "Spotify_Careers",          wd: 5 },
-  { name: "IBM",           tenant: "ibm",           site: "IBM_Careers",              wd: 5 },
-  { name: "Oracle",        tenant: "oracle",        site: "Oracle_Careers",           wd: 5 },
-  { name: "Qualcomm",      tenant: "qualcomm",      site: "Qualcomm_Careers",         wd: 5 },
-  { name: "Intel",         tenant: "intel",         site: "Intel_Careers",            wd: 5 },
-  { name: "Cisco",         tenant: "cisco",         site: "Cisco_Careers",            wd: 5 },
-  { name: "Dell",          tenant: "dell",          site: "Dell_Careers",             wd: 5 },
-  { name: "HP",            tenant: "hp",            site: "HP_Careers",               wd: 5 },
-  { name: "Block",         tenant: "block",         site: "Block_Careers",            wd: 5 },
-  { name: "Snap",          tenant: "snap",          site: "Snap_Careers",             wd: 5 },
-  { name: "Intuit",        tenant: "intuit",        site: "Intuit_Careers",           wd: 5 },
 ];
 
 // ---------------- ASHBY ----------------
