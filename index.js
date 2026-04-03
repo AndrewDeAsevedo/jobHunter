@@ -90,6 +90,10 @@ const KEYWORDS = [
   "solutions engineer",
   "support engineer",
   "implementation engineer",
+
+  // Associate-level titles (entry at many companies)
+  "associate engineer",
+  "associate developer",
 ];
 
 const LOCATIONS = [
@@ -235,48 +239,6 @@ const EXCLUDE = [
   "analyst",
 ];
 
-/**
- * Title must match at least one signal: explicit entry wording, junior/new-grad,
- * Roman I, or level 1. Plain "Software Engineer" without these is excluded.
- */
-const ENTRY_LEVEL_PHRASES = [
-  "entry level",
-  "entry-level",
-  "junior",
-  "jr.",
-  " jr ",
-  "new grad",
-  "new graduate",
-  "recent graduate",
-  "early career",
-  "early-career",
-  "graduate software",
-  "university graduate",
-  "campus hire",
-  "campus recruiting",
-  "campus program",
-  "rotational",
-  "associate software",
-  "associate engineer",
-  "associate developer",
-  "associate technology",
-  "apprentice",
-  "apprenticeship",
-  "university ",
-];
-
-/** Roman I or numeric 1 (not II/III — those are excluded separately). */
-const ENTRY_LEVEL_LEVEL1 =
-  /\bsoftware engineer\s+i\b|\bsoftware developer\s+i\b|\b(swe|sde)\s+i\b|\bsoftware engineer\s+1\b|\bsoftware developer\s+1\b|\bdeveloper\s+1\b|\bengineer\s+1\b|\bfrontend engineer\s+i\b|\bbackend engineer\s+i\b|\bfull[\s-]?stack engineer\s+i\b/i;
-
-/** Plain SWE titles (no "junior" / "entry" in the string). Still gated by EXCLUDE + LEVEL_ROMAN_MID_PLUS. */
-function isPlainSoftwareEngineerTitle(t) {
-  if (t.includes("software engineer")) return true;
-  if (t.includes("software developer")) return true;
-  if (/\bswe\b/.test(t)) return true;
-  if (/\bsde\b/.test(t)) return true;
-  return false;
-}
 
 const DISCORD_WEBHOOK = process.env.DISCORD_WEBHOOK;
 const SEEN_FILE = "seen.json";
@@ -305,7 +267,7 @@ function saveDiscovered() {
   fs.writeFileSync(DISCOVERED_FILE, JSON.stringify(discovered, null, 2));
 }
 
-let dailyStats = { jobs: 0, greenhouse: 0, lever: 0, workday: 0, ashby: 0, google: 0, amazon: 0, discovered: 0, errors: 0 };
+let dailyStats = { jobs: 0, greenhouse: 0, lever: 0, workday: 0, ashby: 0, amazon: 0, discovered: 0, errors: 0 };
 
 // ---------------- HELPERS ----------------
 
@@ -313,13 +275,6 @@ const normalize = (s) => (s || "").toLowerCase();
 
 /** Roman-numeral IC levels II–V (mid+); exclude from entry-level feed. */
 const LEVEL_ROMAN_MID_PLUS = /\biii\b|\bii\b|\biv\b|\bv\b/i;
-
-function isEntryLevelTitle(t) {
-  if (ENTRY_LEVEL_PHRASES.some(p => t.includes(p))) return true;
-  if (ENTRY_LEVEL_LEVEL1.test(t)) return true;
-  if (isPlainSoftwareEngineerTitle(t)) return true;
-  return false;
-}
 
 function matches(title, location) {
   const t = normalize(title);
@@ -329,8 +284,7 @@ function matches(title, location) {
     KEYWORDS.some(k => t.includes(k)) &&
     LOCATIONS.some(loc => l.includes(loc)) &&
     !EXCLUDE.some(e => t.includes(e)) &&
-    !LEVEL_ROMAN_MID_PLUS.test(t) &&
-    isEntryLevelTitle(t)
+    !LEVEL_ROMAN_MID_PLUS.test(t)
   );
 }
 
@@ -583,82 +537,12 @@ async function checkAshby() {
   }
 }
 
-// ---------------- FAANG CAREERS (Google + Amazon) ----------------
-// Google: embedded JSON in HTML (AF_initDataCallback).
-// Amazon: public search.json API (see checkAmazonJobs).
-// Meta / Apple / Netflix: no stable public JSON API without auth or headless browsing;
-// Apple jobs API returns 401; Meta/Netflix are client-rendered. Those would need separate scrapers or official APIs.
-
-const GOOGLE_CAREERS_QUERIES = [
-  { q: "software engineer", location: "San Francisco" },
-  { q: "software engineer", location: "Boston" },
-];
-const GOOGLE_CAREERS_PAGES = 3;
+// ---------------- AMAZON CAREERS ----------------
+// Uses Amazon's public search.json API. Locations filtered by matches() + LOCATIONS list.
 
 const AMAZON_JOBS_URL = "https://www.amazon.jobs/en/search.json";
-/** Paginated Software Engineer search; locations filtered by existing matches() + LOCATIONS. */
 const AMAZON_JOBS_PAGES = 4;
 const AMAZON_RESULT_LIMIT = 50;
-
-/**
- * Parses embedded job data from Google Careers HTML.
- * Google renders job listings into AF_initDataCallback({key:'ds:1', ...})
- * as a JSON array — no headless browser needed.
- */
-function parseGoogleCareersJobs(html) {
-  const match = html.match(/AF_initDataCallback\(\{key: 'ds:1', hash: '2', data:(.*), sideChannel:/);
-  if (!match) return [];
-
-  try {
-    const data = JSON.parse(match[1]);
-    return (data[0] || []).map(j => ({
-      id: j[0],
-      title: j[1],
-      company: j[7] || "Google",
-      locations: (j[9] || []).map(loc => loc[0]).join(", "),
-      url: `https://www.google.com/about/careers/applications/jobs/results/${j[0]}`,
-    }));
-  } catch {
-    return [];
-  }
-}
-
-async function checkGoogleCareers() {
-  for (const query of GOOGLE_CAREERS_QUERIES) {
-    for (let page = 1; page <= GOOGLE_CAREERS_PAGES; page++) {
-      try {
-        const url = `https://www.google.com/about/careers/applications/jobs/results/?q=${encodeURIComponent(query.q)}&location=${encodeURIComponent(query.location)}&page=${page}`;
-
-        const res = await fetchWithTimeout(url, {
-          headers: { "User-Agent": GOOGLE_UA, "Accept-Language": "en-US,en;q=0.9" }
-        });
-
-        if (!res.ok) {
-          console.error(`[Google Careers] ${query.location} page ${page}: HTTP ${res.status}`);
-          continue;
-        }
-
-        const html = await res.text();
-        const jobs = parseGoogleCareersJobs(html);
-
-        for (const job of jobs) {
-          const id = `gc-${job.id}`;
-          if (seen.has(id)) continue;
-
-          if (matches(job.title, job.locations)) {
-            seen.set(id, Date.now());
-            dailyStats.google++;
-            dailyStats.jobs++;
-            await notify(`${job.title} (${job.company})`, job.locations, job.url);
-          }
-        }
-      } catch (err) {
-        dailyStats.errors++;
-        console.error(`[Google Careers] ${query.location} page ${page}: ${err.message}`);
-      }
-    }
-  }
-}
 
 async function checkAmazonJobs() {
   for (let page = 0; page < AMAZON_JOBS_PAGES; page++) {
@@ -918,14 +802,13 @@ const API_INTERVAL_MS = 15 * 60 * 1000;    // 15 minutes
 const GOOGLE_INTERVAL_MS = 6 * 60 * 60 * 1000; // 6 hours
 
 async function runAPIs() {
-  console.log(`[${new Date().toLocaleTimeString()}] 🔍 Checking Greenhouse + Lever + Workday + Ashby + FAANG (Google + Amazon)...\n`);
+  console.log(`[${new Date().toLocaleTimeString()}] 🔍 Checking Greenhouse + Lever + Workday + Ashby + Amazon...\n`);
 
   await Promise.all([
     checkGreenhouse(),
     checkLever(),
     checkWorkday(),
     checkAshby(),
-    checkGoogleCareers(),
     checkAmazonJobs(),
   ]);
   saveSeen();
@@ -952,8 +835,8 @@ async function sendDailyDigest() {
 
   const lines = [
     `📊 **Daily Digest (${date})**`,
-    `${dailyStats.jobs} new jobs found: ${dailyStats.greenhouse} Greenhouse, ${dailyStats.lever} Lever, ${dailyStats.workday} Workday, ${dailyStats.ashby} Ashby, ${dailyStats.google} Google, ${dailyStats.amazon} Amazon`,
-    `${companyTotal} companies tracked (${ghTotal} GH + ${levTotal} Lev + ${wdTotal} WD + ${ashTotal} Ash) + FAANG (Google + Amazon)`,
+    `${dailyStats.jobs} new jobs found: ${dailyStats.greenhouse} Greenhouse, ${dailyStats.lever} Lever, ${dailyStats.workday} Workday, ${dailyStats.ashby} Ashby, ${dailyStats.amazon} Amazon`,
+    `${companyTotal} companies tracked (${ghTotal} GH + ${levTotal} Lev + ${wdTotal} WD + ${ashTotal} Ash) + Amazon Jobs`,
     `${dailyStats.discovered} new companies discovered`,
     `${dailyStats.errors} API errors`,
     `seen.json: ${seen.size.toLocaleString()} entries${pruned ? ` (pruned ${pruned} stale)` : ""}`,
@@ -974,7 +857,7 @@ async function sendDailyDigest() {
     }
   }
 
-  dailyStats = { jobs: 0, greenhouse: 0, lever: 0, workday: 0, ashby: 0, google: 0, amazon: 0, discovered: 0, errors: 0 };
+  dailyStats = { jobs: 0, greenhouse: 0, lever: 0, workday: 0, ashby: 0, amazon: 0, discovered: 0, errors: 0 };
 }
 
 /** Returns ms until the next occurrence of the given hour (0-23) in local time. */
@@ -1007,7 +890,7 @@ async function start() {
   const levTotal = getAllLeverCompanies().length;
   const wdTotal = getAllWorkdayCompanies().length;
   const ashTotal = getAllAshbyCompanies().length;
-  console.log(`⏰ Tracking ${ghTotal} Greenhouse + ${levTotal} Lever + ${wdTotal} Workday + ${ashTotal} Ashby companies + FAANG (Google + Amazon jobs)`);
+  console.log(`⏰ Tracking ${ghTotal} Greenhouse + ${levTotal} Lever + ${wdTotal} Workday + ${ashTotal} Ashby companies + Amazon Jobs`);
   console.log(`⏰ APIs every 15m, Discovery every ${GOOGLE_INTERVAL_MS / 3600000}h, Digest at ${DIGEST_HOUR}:00 (in ${digestHoursAway}h). Ctrl+C to stop.\n`);
 }
 
