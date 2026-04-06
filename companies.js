@@ -86,4 +86,7 @@ export const ASHBY_COMPANIES = [
   "raptor-maps", "whoop", "tulip", "appcues",
   "immuta", "jellyfish-co", "salsify", "locus-robotics",
   "flywire", "vestmark", "silverfort",
+
+  // --- NYC ---
+  "bevel",
 ];

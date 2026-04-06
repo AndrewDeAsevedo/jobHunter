@@ -172,6 +172,33 @@ const LOCATIONS = [
   "worcester",
   "massachusetts",
 
+  // --- New York City ---
+  "new york",
+  "nyc",
+  "manhattan",
+  "brooklyn",
+  "queens",
+  "bronx",
+  "staten island",
+  "jersey city",
+  "hoboken",
+  "newark",
+  "long island city",
+  "astoria",
+  "flushing",
+
+  // --- Seattle ---
+  "seattle",
+  "bellevue",
+  "redmond",
+  "kirkland",
+  "bothell",
+  "renton",
+  "issaquah",
+  "mercer island",
+  "shoreline",
+  "kent, wa",
+
   // --- Remote / Flexible ---
   "remote",
 ];
