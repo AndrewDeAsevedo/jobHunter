@@ -4,7 +4,7 @@ import * as cheerio from "cheerio";
 import { WORKDAY_COMPANIES, ASHBY_COMPANIES } from "./companies.js";
 import "dotenv/config";
 
-const FETCH_TIMEOUT_MS = 10_000;
+const FETCH_TIMEOUT_MS = 30_000;
 
 /** Aborts after FETCH_TIMEOUT_MS to prevent hanging on unresponsive APIs. */
 function fetchWithTimeout(url, opts = {}) {
